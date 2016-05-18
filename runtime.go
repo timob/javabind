@@ -39,7 +39,8 @@ func WrapJObject(jobj uintptr, className string, isArray bool) *jnigi.ObjectRef 
 }
 
 func MakeGlobal(o CallableContainer) {
-	GetEnv().MakeGlobal(o.getCallable().ObjectRef)
+	g := GetEnv().NewGlobalRef(o.getCallable().ObjectRef)
+	o.getCallable().ObjectRef = g
 }
 
 func DeleteLocalRef(o CallableContainer) {
