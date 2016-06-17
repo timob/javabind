@@ -17,6 +17,7 @@ const (
 	Void = jnigi.Void
 	Boolean = jnigi.Boolean
 	Byte = jnigi.Byte
+	Char = jnigi.Char
 	Short = jnigi.Short
 	Int = jnigi.Int
 	Long = jnigi.Long
