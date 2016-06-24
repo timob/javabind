@@ -71,6 +71,25 @@ func GetEnv() (e *jnigi.Env) {
 	return
 }
 
+type CheckEnv struct {
+	e *jnigi.Env
+}
+
+func NewCheckEnv() *CheckEnv {
+	return &CheckEnv{GetEnv()}
+}
+
+func (c *CheckEnv) SameEnv() bool {
+	if c != nil {
+		if v, ok := envs[GetThreadId()]; ok {
+			if v == c.e {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 var OnJVMStartFn []func()
 
 func OnJVMStart(f func()) {
