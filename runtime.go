@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -160,6 +161,17 @@ func SetupJVM(classPath string) (err error) {
 	}
 
 	return
+}
+
+func SetupJVMFromEnv(env unsafe.Pointer) {
+	envs[GetThreadId()] = jnigi.WrapEnv(env)
+	for _, f := range OnJVMStartFn {
+		f()
+	}
+}
+
+func AddEnv(env unsafe.Pointer) {
+	envs[GetThreadId()] = jnigi.WrapEnv(env)
 }
 
 func CallObjectMethod(obj *jnigi.ObjectRef, env *jnigi.Env, methodName, retClassName string, args ...interface{}) (*jnigi.ObjectRef, error) {
