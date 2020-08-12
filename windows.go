@@ -6,9 +6,9 @@
 
 package javabind
 
-import "syscall"
+import "golang.org/x/sys/windows"
 
 func GetThreadId() int {
 //	return 1
-	return int(syscall.GetCurrentThreadId())
+	return int(windows.GetCurrentThreadId())
 }
