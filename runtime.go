@@ -143,6 +143,12 @@ func SetupJVM(classPath string) (err error) {
 	if debug {
 		log.Printf("Using classpath %v", classPath)
 	}
+	libPath := jnigi.AttemptToFindJVMLibPath()
+	if err := jnigi.LoadJVMLib(libPath); err != nil {
+		log.Printf("library path = %s", libPath)
+		log.Printf("can use JAVA_HOME environment variable to set JRE root directory")
+		return err
+	}
 
 	args := []string{"-Djava.class.path=" + classPath}
 	// []string{"-Xcheck:jni"}
