@@ -1,4 +1,4 @@
-module tekao.net/javabind
+module github.com/timob/javabind
 
 go 1.18
 
