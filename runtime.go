@@ -6,26 +6,28 @@ package javabind
 
 import (
 	"errors"
-	"github.com/timob/jnigi"
 	"log"
 	"reflect"
+	"runtime"
 	"sync"
 	"time"
 	"unsafe"
+
+	"tekao.net/jnigi"
 )
 
 const (
-	Void = jnigi.Void
+	Void    = jnigi.Void
 	Boolean = jnigi.Boolean
-	Byte = jnigi.Byte
-	Char = jnigi.Char
-	Short = jnigi.Short
-	Int = jnigi.Int
-	Long = jnigi.Long
-	Float = jnigi.Float
-	Double = jnigi.Double
-	Object = jnigi.Object
-	Array = jnigi.Array
+	Byte    = jnigi.Byte
+	Char    = jnigi.Char
+	Short   = jnigi.Short
+	Int     = jnigi.Int
+	Long    = jnigi.Long
+	Float   = jnigi.Float
+	Double  = jnigi.Double
+	Object  = jnigi.Object
+	Array   = jnigi.Array
 )
 
 func ObjectType(className string) jnigi.ObjectType {
@@ -106,6 +108,7 @@ type AttachedThread struct {
 func NewAttachedThread() *AttachedThread {
 	a := &AttachedThread{make(chan func()), make(chan byte), make(chan byte)}
 	go func() {
+		runtime.LockOSThread()
 		env := jvm.AttachCurrentThread()
 		envsLock.Lock()
 		envs[GetThreadId()] = env
@@ -119,7 +122,7 @@ func NewAttachedThread() *AttachedThread {
 				envsLock.Lock()
 				delete(envs, GetThreadId())
 				envsLock.Unlock()
-				if err := jvm.DetachCurrentThread(); err != nil {
+				if err := jvm.DetachCurrentThread(env); err != nil {
 					log.Print(err)
 				}
 				return
@@ -150,6 +153,7 @@ func SetupJVM(classPath string) (err error) {
 		return err
 	}
 
+	runtime.LockOSThread()
 	args := []string{"-Djava.class.path=" + classPath}
 	// []string{"-Xcheck:jni"}
 	jvm2, env, err := jnigi.CreateJVM(jnigi.NewJVMInitArgs(false, true, jnigi.DEFAULT_VERSION, args))
@@ -180,12 +184,12 @@ func AddEnv(env unsafe.Pointer) {
 	envs[GetThreadId()] = jnigi.WrapEnv(env)
 }
 
-func CallObjectMethod(obj *jnigi.ObjectRef, env *jnigi.Env, methodName, retClassName string, args ...interface{}) (*jnigi.ObjectRef, error) {
-	v, err := obj.CallMethod(env, methodName, retClassName, args...)
+func CallObjectMethod(obj *jnigi.ObjectRef, env *jnigi.Env, methodName string, dest interface{}, args ...interface{}) error {
+	err := obj.CallMethod(env, methodName, dest, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return v.(*jnigi.ObjectRef), nil
+	return nil
 }
 
 type Callable struct {
@@ -209,11 +213,12 @@ func (c *Callable) InstanceOf(className string) bool {
 }
 
 func size(env *jnigi.Env, obj *jnigi.ObjectRef) (int, error) {
-	v, err := obj.CallMethod(env, "size", Int)
+	var v int
+	err := obj.CallMethod(env, "size", &v)
 	if err != nil {
 		return 0, err
 	}
-	return v.(int), nil
+	return v, nil
 }
 
 type ToJavaConverter interface {
@@ -324,11 +329,12 @@ func (j *JavaToGoString) Convert(obj *jnigi.ObjectRef) error {
 	j.obj = obj
 
 	j.env.PrecalculateSignature("(Ljava/lang/String;)[B")
-	v, err := j.obj.CallMethod(j.env, "getBytes", Byte | Array, j.env.GetUTF8String())
+	var strBytes []byte
+	err := j.obj.CallMethod(j.env, "getBytes", &strBytes, j.env.GetUTF8String())
 	if err != nil {
 		return err
 	}
-	*j.str = string(v.([]byte))
+	*j.str = string(strBytes)
 
 	return nil
 }
@@ -367,8 +373,9 @@ func (g *GoToJavaList) Convert(value interface{}) (err error) {
 			return
 		}
 
-//		g.env.PrecalculateSignature("(Ljava/lang/Object;)Z")
-		_, err = listObj.CallMethod(g.env, "add", Boolean, g.item.Value().Cast("java/lang/Object"))
+		//		g.env.PrecalculateSignature("(Ljava/lang/Object;)Z")
+		var dummy bool
+		err = listObj.CallMethod(g.env, "add", &dummy, g.item.Value().Cast("java/lang/Object"))
 		if err != nil {
 			return
 		}
@@ -422,7 +429,8 @@ func (j *JavaToGoList) Convert(obj *jnigi.ObjectRef) (err error) {
 		return
 	}
 	for i := 0; i < len; i++ {
-		itemObj, err := CallObjectMethod(obj, j.env, "get", "java/lang/Object", i)
+		itemObj := jnigi.NewObjectRef("java/lang/Object")
+		err := CallObjectMethod(obj, j.env, "get", itemObj, i)
 		if err != nil {
 			return err
 		}
@@ -484,16 +492,17 @@ func (j *JavaToGoIterator) Convert(obj *jnigi.ObjectRef) (err error) {
 	}
 
 	for {
-		v, err := obj.CallMethod(j.env, "hasNext", Boolean)
+		var v bool
+		err := obj.CallMethod(j.env, "hasNext", &v)
 		if err != nil {
 			return err
 		}
-		if v.(bool) == false {
+		if v == false {
 			break
 		}
 
-
-		next, err := CallObjectMethod(obj, j.env, "next", "java/lang/Object")
+		next := jnigi.NewObjectRef("java/lang/Object")
+		err = CallObjectMethod(obj, j.env, "next", &next)
 		if err != nil {
 			return err
 		}
@@ -531,7 +540,7 @@ func (g *GoToJavaCollection) Value() *jnigi.ObjectRef {
 }
 
 type JavaToGoCollection struct {
-	env *jnigi.Env
+	env  *jnigi.Env
 	iter *jnigi.ObjectRef
 	*JavaToGoIterator
 }
@@ -545,10 +554,12 @@ func (j *JavaToGoCollection) Dest(ptr interface{}) {
 }
 
 func (j *JavaToGoCollection) Convert(obj *jnigi.ObjectRef) (err error) {
-	j.iter, err = CallObjectMethod(obj, j.env, "iterator", "java/util/Iterator")
+	iter := jnigi.NewObjectRef("java/util/Iterator")
+	err = CallObjectMethod(obj, j.env, "iterator", &iter)
 	if err != nil {
 		return
 	}
+	j.iter = iter
 	return j.JavaToGoIterator.Convert(j.iter)
 }
 
@@ -558,7 +569,7 @@ func (j *JavaToGoCollection) CleanUp() (err error) {
 }
 
 type JavaToGoSet struct {
-	env *jnigi.Env
+	env  *jnigi.Env
 	iter *jnigi.ObjectRef
 	*JavaToGoIterator
 }
@@ -572,10 +583,12 @@ func (j *JavaToGoSet) Dest(ptr interface{}) {
 }
 
 func (j *JavaToGoSet) Convert(obj *jnigi.ObjectRef) (err error) {
-	j.iter, err = CallObjectMethod(obj, j.env, "iterator", "java/util/Iterator")
+	iter := jnigi.NewObjectRef("java/util/Iterator")
+	err = CallObjectMethod(obj, j.env, "iterator", &iter)
 	if err != nil {
 		return
 	}
+	j.iter = iter
 	return j.JavaToGoIterator.Convert(j.iter)
 }
 
@@ -616,8 +629,8 @@ func (g *GoToJavaMap) Convert(value interface{}) (err error) {
 			return
 		}
 
-		jlo := "java/lang/Object"
-		_, err = mapObj.CallMethod(g.env, "put", jlo, g.key.Value().Cast(jlo), g.value.Value().Cast(jlo))
+		dummy := jnigi.NewObjectRef("java/lang/Object")
+		err = mapObj.CallMethod(g.env, "put", &dummy, g.key.Value().Cast("java/lang/Object"), g.value.Value().Cast("java/lang/Object"))
 		if err != nil {
 			return
 		}
@@ -647,7 +660,7 @@ type JavaToGoMap struct {
 	env    *jnigi.Env
 	key    FromJavaConverter
 	value  FromJavaConverter
-	list *jnigi.ObjectRef
+	list   *jnigi.ObjectRef
 }
 
 func NewJavaToGoMap(key, value FromJavaConverter) *JavaToGoMap {
@@ -674,7 +687,8 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 		r_map.Set(reflect.MakeMap(r_map.Type()))
 	}
 
-	keySet, err := CallObjectMethod(obj, j.env, "keySet", "java/util/Set")
+	keySet := jnigi.NewObjectRef("java/util/Set")
+	err = CallObjectMethod(obj, j.env, "keySet", &keySet)
 	if err != nil {
 		return
 	}
@@ -690,11 +704,13 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 		return
 	}
 	for i := 0; i < len; i++ {
-		keyobj, err := CallObjectMethod(keyList, j.env, "get", "java/lang/Object", i)
+		keyobj := jnigi.NewObjectRef("java/lang/Object")
+		err := CallObjectMethod(keyList, j.env, "get", &keyobj, i)
 		if err != nil {
 			return err
 		}
-		valobj, err := CallObjectMethod(obj, j.env, "get", "java/lang/Object", keyobj.Cast("java/lang/Object"))
+		valobj := jnigi.NewObjectRef("java/lang/Object")
+		err = CallObjectMethod(obj, j.env, "get", &valobj, keyobj.Cast("java/lang/Object"))
 		if err != nil {
 			return err
 		}
@@ -768,11 +784,13 @@ func (j *JavaToGoMap_Entry) Convert(obj *jnigi.ObjectRef) (err error) {
 		return errors.New("JavaToGoMapEntry.Convert: dest ptr , does not point to struct")
 	}
 
-	keyObj, err := CallObjectMethod(obj, j.env, "getKey", "java/lang/Object")
+	keyObj := jnigi.NewObjectRef("java/lang/Object")
+	err = CallObjectMethod(obj, j.env, "getKey", &keyObj)
 	if err != nil {
 		return
 	}
-	valObj, err := CallObjectMethod(obj, j.env, "getValue", "java/lang/Object")
+	valObj := jnigi.NewObjectRef("java/lang/Object")
+	err = CallObjectMethod(obj, j.env, "getValue", &valObj)
 	if err != nil {
 		return
 	}
@@ -808,11 +826,11 @@ func (j *JavaToGoMap_Entry) CleanUp() (err error) {
 }
 
 type GoToJavaObjectArray struct {
-	item  ToJavaConverter
+	item        ToJavaConverter
 	objectArray *jnigi.ObjectRef
-	env *jnigi.Env
-	className string
-	list []*jnigi.ObjectRef
+	env         *jnigi.Env
+	className   string
+	list        []*jnigi.ObjectRef
 }
 
 func NewGoToJavaObjectArray(item ToJavaConverter, className string) *GoToJavaObjectArray {
@@ -834,11 +852,11 @@ func (g *GoToJavaObjectArray) Convert(value interface{}) (err error) {
 		}
 
 		a[i] = g.item.Value()
-/*
-		if err = g.item.CleanUp(); err != nil {
-			return
-		}
-*/
+		/*
+			if err = g.item.CleanUp(); err != nil {
+				return
+			}
+		*/
 	}
 	g.objectArray = g.env.ToObjectArray(a, g.className)
 	g.list = a
@@ -966,11 +984,12 @@ func (g *JavaToGoInteger) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoInteger) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "IntegerValue", Int)
+	var v int
+	err = obj.CallMethod(g.env, "IntegerValue", &v)
 	if err != nil {
 		return
 	}
-	*g.intPtr = v.(int)
+	*g.intPtr = v
 	return
 }
 
@@ -1019,11 +1038,12 @@ func (g *JavaToGoLong) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoLong) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "longValue", Long)
+	var v int64
+	err = obj.CallMethod(g.env, "longValue", &v)
 	if err != nil {
 		return
 	}
-	*g.int64Ptr = v.(int64)
+	*g.int64Ptr = v
 	return
 }
 
@@ -1072,11 +1092,12 @@ func (g *JavaToGoInt) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoInt) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "intValue", Int)
+	var v int
+	err = obj.CallMethod(g.env, "intValue", &v)
 	if err != nil {
 		return
 	}
-	*g.intPtr = v.(int)
+	*g.intPtr = v
 	return
 }
 
@@ -1124,11 +1145,12 @@ func (g *JavaToGoFloat) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoFloat) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "floatValue", Float)
+	var v float32
+	err = obj.CallMethod(g.env, "floatValue", &v)
 	if err != nil {
 		return
 	}
-	*g.floatPtr = v.(float32)
+	*g.floatPtr = v
 	return
 }
 
@@ -1176,11 +1198,12 @@ func (g *JavaToGoDouble) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoDouble) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "doubleValue", Double)
+	var v float64
+	err = obj.CallMethod(g.env, "doubleValue", &v)
 	if err != nil {
 		return
 	}
-	*g.floatPtr = v.(float64)
+	*g.floatPtr = v
 	return
 }
 
@@ -1228,11 +1251,12 @@ func (g *JavaToGoBoolean) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoBoolean) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "booleanValue", Boolean)
+	var v bool
+	err = obj.CallMethod(g.env, "booleanValue", &v)
 	if err != nil {
 		return
 	}
-	*g.boolPtr = v.(bool)
+	*g.boolPtr = v
 	return
 }
 
@@ -1257,14 +1281,15 @@ func (g *GoToJavaInetAddress) Convert(value interface{}) (err error) {
 		return err
 	}
 
-	v, err := g.env.CallStaticMethod("java.net.InetAddress", "getByName", "java.lang.InetAddress", sconv.Value())
+	v := jnigi.NewObjectRef("java.lang.InetAddress")
+	err = g.env.CallStaticMethod("java.net.InetAddress", "getByName", &v, sconv.Value())
 	if err != nil {
 		return err
 	}
 
 	sconv.CleanUp()
 
-	g.obj = v.(*jnigi.ObjectRef)
+	g.obj = v
 	return
 }
 
@@ -1290,14 +1315,15 @@ func (g *JavaToGoInetAddress) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoInetAddress) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "getHostAddress", "java/lang/String")
+	v := jnigi.NewObjectRef("java/lang/String")
+	err = obj.CallMethod(g.env, "getHostAddress", &v)
 	if err != nil {
 		return
 	}
 
 	sconv := NewJavaToGoString()
 	sconv.Dest(g.strPtr)
-	sconv.Convert(v.(*jnigi.ObjectRef))
+	sconv.Convert(v)
 	sconv.CleanUp()
 	return
 }
@@ -1350,11 +1376,12 @@ func (g *JavaToGoDate) Dest(ptr interface{}) {
 }
 
 func (g *JavaToGoDate) Convert(obj *jnigi.ObjectRef) (err error) {
-	v, err := obj.CallMethod(g.env, "getTime", Long)
+	var v int64
+	err = obj.CallMethod(g.env, "getTime", &v)
 	if err != nil {
 		return
 	}
-	ms := v.(int64)
+	ms := v
 	*g.timePtr = time.Unix(ms/1000, (ms%1000)*1000000)
 	return
 }
