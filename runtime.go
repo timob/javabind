@@ -30,13 +30,17 @@ const (
 	Array   = jnigi.Array
 )
 
-func ObjectType(className string) jnigi.ObjectType {
-	return jnigi.ObjectType(className)
-}
+var NewObjectRef = jnigi.NewObjectRef
 
-func ObjectArrayType(className string) jnigi.ObjectArrayType {
-	return jnigi.ObjectArrayType(className)
-}
+var NewObjectArrayRef = jnigi.NewObjectArrayRef
+
+// func ObjectType(className string) jnigi.ObjectType {
+// 	return jnigi.ObjectType(className)
+// }
+
+// func ObjectArrayType(className string) jnigi.ObjectArrayType {
+// 	return jnigi.ObjectArrayType(className)
+// }
 
 func WrapJObject(jobj uintptr, className string, isArray bool) *jnigi.ObjectRef {
 	return jnigi.WrapJObject(jobj, className, isArray)
@@ -502,7 +506,7 @@ func (j *JavaToGoIterator) Convert(obj *jnigi.ObjectRef) (err error) {
 		}
 
 		next := jnigi.NewObjectRef("java/lang/Object")
-		err = CallObjectMethod(obj, j.env, "next", &next)
+		err = CallObjectMethod(obj, j.env, "next", next)
 		if err != nil {
 			return err
 		}
@@ -555,7 +559,7 @@ func (j *JavaToGoCollection) Dest(ptr interface{}) {
 
 func (j *JavaToGoCollection) Convert(obj *jnigi.ObjectRef) (err error) {
 	iter := jnigi.NewObjectRef("java/util/Iterator")
-	err = CallObjectMethod(obj, j.env, "iterator", &iter)
+	err = CallObjectMethod(obj, j.env, "iterator", iter)
 	if err != nil {
 		return
 	}
@@ -584,7 +588,7 @@ func (j *JavaToGoSet) Dest(ptr interface{}) {
 
 func (j *JavaToGoSet) Convert(obj *jnigi.ObjectRef) (err error) {
 	iter := jnigi.NewObjectRef("java/util/Iterator")
-	err = CallObjectMethod(obj, j.env, "iterator", &iter)
+	err = CallObjectMethod(obj, j.env, "iterator", iter)
 	if err != nil {
 		return
 	}
@@ -630,7 +634,7 @@ func (g *GoToJavaMap) Convert(value interface{}) (err error) {
 		}
 
 		dummy := jnigi.NewObjectRef("java/lang/Object")
-		err = mapObj.CallMethod(g.env, "put", &dummy, g.key.Value().Cast("java/lang/Object"), g.value.Value().Cast("java/lang/Object"))
+		err = mapObj.CallMethod(g.env, "put", dummy, g.key.Value().Cast("java/lang/Object"), g.value.Value().Cast("java/lang/Object"))
 		if err != nil {
 			return
 		}
@@ -688,7 +692,7 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 	}
 
 	keySet := jnigi.NewObjectRef("java/util/Set")
-	err = CallObjectMethod(obj, j.env, "keySet", &keySet)
+	err = CallObjectMethod(obj, j.env, "keySet", keySet)
 	if err != nil {
 		return
 	}
@@ -705,12 +709,12 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 	}
 	for i := 0; i < len; i++ {
 		keyobj := jnigi.NewObjectRef("java/lang/Object")
-		err := CallObjectMethod(keyList, j.env, "get", &keyobj, i)
+		err := CallObjectMethod(keyList, j.env, "get", keyobj, i)
 		if err != nil {
 			return err
 		}
 		valobj := jnigi.NewObjectRef("java/lang/Object")
-		err = CallObjectMethod(obj, j.env, "get", &valobj, keyobj.Cast("java/lang/Object"))
+		err = CallObjectMethod(obj, j.env, "get", valobj, keyobj.Cast("java/lang/Object"))
 		if err != nil {
 			return err
 		}
@@ -785,12 +789,12 @@ func (j *JavaToGoMap_Entry) Convert(obj *jnigi.ObjectRef) (err error) {
 	}
 
 	keyObj := jnigi.NewObjectRef("java/lang/Object")
-	err = CallObjectMethod(obj, j.env, "getKey", &keyObj)
+	err = CallObjectMethod(obj, j.env, "getKey", keyObj)
 	if err != nil {
 		return
 	}
 	valObj := jnigi.NewObjectRef("java/lang/Object")
-	err = CallObjectMethod(obj, j.env, "getValue", &valObj)
+	err = CallObjectMethod(obj, j.env, "getValue", valObj)
 	if err != nil {
 		return
 	}
@@ -1282,7 +1286,7 @@ func (g *GoToJavaInetAddress) Convert(value interface{}) (err error) {
 	}
 
 	v := jnigi.NewObjectRef("java.lang.InetAddress")
-	err = g.env.CallStaticMethod("java.net.InetAddress", "getByName", &v, sconv.Value())
+	err = g.env.CallStaticMethod("java.net.InetAddress", "getByName", v, sconv.Value())
 	if err != nil {
 		return err
 	}
@@ -1316,7 +1320,7 @@ func (g *JavaToGoInetAddress) Dest(ptr interface{}) {
 
 func (g *JavaToGoInetAddress) Convert(obj *jnigi.ObjectRef) (err error) {
 	v := jnigi.NewObjectRef("java/lang/String")
-	err = obj.CallMethod(g.env, "getHostAddress", &v)
+	err = obj.CallMethod(g.env, "getHostAddress", v)
 	if err != nil {
 		return
 	}
