@@ -34,13 +34,13 @@ var NewObjectRef = jnigi.NewObjectRef
 
 var NewObjectArrayRef = jnigi.NewObjectArrayRef
 
-// func ObjectType(className string) jnigi.ObjectType {
-// 	return jnigi.ObjectType(className)
-// }
+func ObjectType(className string) jnigi.ObjectType {
+	return jnigi.ObjectType(className)
+}
 
-// func ObjectArrayType(className string) jnigi.ObjectArrayType {
-// 	return jnigi.ObjectArrayType(className)
-// }
+func ObjectArrayType(className string) jnigi.ObjectArrayType {
+	return jnigi.ObjectArrayType(className)
+}
 
 func WrapJObject(jobj uintptr, className string, isArray bool) *jnigi.ObjectRef {
 	return jnigi.WrapJObject(jobj, className, isArray)
