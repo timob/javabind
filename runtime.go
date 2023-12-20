@@ -47,16 +47,16 @@ func WrapJObject(jobj uintptr, className string, isArray bool) *jnigi.ObjectRef 
 }
 
 func MakeGlobal(o CallableContainer) {
-	g := GetEnv().NewGlobalRef(o.getCallable().ObjectRef)
-	o.getCallable().ObjectRef = g
+	g := GetEnv().NewGlobalRef(o.GetCallable().ObjectRef)
+	o.GetCallable().ObjectRef = g
 }
 
 func DeleteLocalRef(o CallableContainer) {
-	GetEnv().DeleteLocalRef(o.getCallable().ObjectRef)
+	GetEnv().DeleteLocalRef(o.GetCallable().ObjectRef)
 }
 
 func DeleteGlobalRef(o CallableContainer) {
-	GetEnv().DeleteGlobalRef(o.getCallable().ObjectRef)
+	GetEnv().DeleteGlobalRef(o.GetCallable().ObjectRef)
 }
 
 var debug = false
@@ -201,10 +201,10 @@ type Callable struct {
 }
 
 type CallableContainer interface {
-	getCallable() *Callable
+	GetCallable() *Callable
 }
 
-func (c *Callable) getCallable() *Callable {
+func (c *Callable) GetCallable() *Callable {
 	return c
 }
 
@@ -250,7 +250,7 @@ func NewGoToJavaCallable() *GoToJavaCallable {
 }
 
 func (g *GoToJavaCallable) Convert(value interface{}) (err error) {
-	g.obj = value.(CallableContainer).getCallable().ObjectRef
+	g.obj = value.(CallableContainer).GetCallable().ObjectRef
 	return
 }
 
@@ -271,7 +271,7 @@ func NewJavaToGoCallable() *JavaToGoCallable {
 }
 
 func (j *JavaToGoCallable) Dest(ptr interface{}) {
-	j.callable = ptr.(CallableContainer).getCallable()
+	j.callable = ptr.(CallableContainer).GetCallable()
 }
 
 func (j *JavaToGoCallable) Convert(obj *jnigi.ObjectRef) (err error) {
