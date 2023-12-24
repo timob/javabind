@@ -177,6 +177,10 @@ func SetupJVM(classPath string) (err error) {
 	return
 }
 
+func StopJvm() error {
+	return jvm.Destroy()
+}
+
 func SetupJVMFromEnv(env unsafe.Pointer) {
 	envs[GetThreadId()] = jnigi.WrapEnv(env)
 	for _, f := range OnJVMStartFn {
@@ -198,6 +202,28 @@ func CallObjectMethod(obj *jnigi.ObjectRef, env *jnigi.Env, methodName string, d
 
 type Callable struct {
 	*jnigi.ObjectRef
+	nonVirtual bool
+}
+
+func NewCallable(of *jnigi.ObjectRef) *Callable {
+	return &Callable{ObjectRef: of}
+}
+
+func NewEmptyCallable() *Callable {
+	return &Callable{}
+}
+
+func (callable *Callable) SetNonVirtual() {
+	callable.nonVirtual = true
+}
+
+func (callable *Callable) CallMethod(env *jnigi.Env, methodName string, dest interface{}, args ...interface{}) (err error) {
+	if callable.nonVirtual {
+		err = callable.ObjectRef.CallNonvirtualMethod(env, callable.ObjectRef.GetClassName(), methodName, dest, args...)
+	} else {
+		err = callable.ObjectRef.CallMethod(env, methodName, dest, args...)
+	}
+	return err
 }
 
 type CallableContainer interface {
@@ -444,7 +470,7 @@ func (j *JavaToGoList) Convert(obj *jnigi.ObjectRef) (err error) {
 		if r_newElem.Type().Kind() == reflect.Ptr {
 			r_elemVal := reflect.New(r_newElem.Type().Elem())
 			r_newElem.Set(r_elemVal)
-			c := &Callable{}
+			c := NewEmptyCallable()
 			// this is the pointer to generated type by JAG
 			reflect.Indirect(r_elemVal).FieldByName("Callable").Set(reflect.ValueOf(c))
 			j.item.Dest(c)
@@ -727,7 +753,7 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 		if r_newVal.Type().Kind() == reflect.Ptr {
 			r_elemVal := reflect.New(r_newVal.Type().Elem())
 			r_newVal.Set(r_elemVal)
-			c := &Callable{}
+			c := NewEmptyCallable()
 			reflect.Indirect(r_elemVal).FieldByName("Callable").Set(reflect.ValueOf(c))
 			j.value.Dest(c)
 		} else {
@@ -801,7 +827,7 @@ func (j *JavaToGoMap_Entry) Convert(obj *jnigi.ObjectRef) (err error) {
 
 	r_structKey := r_struct.FieldByName("Key")
 	j.key.Dest(r_structKey.Addr().Interface())
-	callable := &Callable{}
+	callable := NewEmptyCallable()
 	j.value.Dest(callable)
 	if err = j.key.Convert(keyObj); err != nil {
 		return err
@@ -913,7 +939,7 @@ func (j *JavaToGoObjectArray) Convert(obj *jnigi.ObjectRef) (err error) {
 	if etype.Kind() == reflect.Ptr {
 		for i := 0; i < len(objs); i++ {
 			r_newElemV := reflect.New(etype.Elem())
-			c := &Callable{}
+			c := NewEmptyCallable()
 			j.item.Dest(c)
 			if err = j.item.Convert(objs[i]); err != nil {
 				return err
