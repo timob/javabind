@@ -598,6 +598,54 @@ func (j *JavaToGoCollection) CleanUp() (err error) {
 	return
 }
 
+type GoToJavaSet struct {
+	obj  *jnigi.ObjectRef
+	env  *jnigi.Env
+	item ToJavaConverter
+}
+
+// needs to be hashset
+func NewGoToJavaSet(item ToJavaConverter) *GoToJavaSet {
+	return &GoToJavaSet{env: GetEnv(), item: item}
+}
+
+func (g *GoToJavaSet) Convert(value interface{}) (err error) {
+	r_value := reflect.ValueOf(value)
+	if r_value.Type().Kind() != reflect.Slice {
+		return errors.New("GoToJavaSet.Convert: value not slice")
+	}
+	n := r_value.Len()
+
+	hashObj, err := g.env.NewObject("java/util/HashSet", n)
+	if err != nil {
+		return
+	}
+
+	for i := 0; i < n; i++ {
+		if err = g.item.Convert(r_value.Index(i).Interface()); err != nil {
+			return
+		}
+
+		//		g.env.PrecalculateSignature("(Ljava/lang/Object;)Z")
+		var dummy bool
+		err = hashObj.CallMethod(g.env, "add", &dummy, g.item.Value().Cast("java/lang/Object"))
+		if err != nil {
+			return
+		}
+
+		if err = g.item.CleanUp(); err != nil {
+			return
+		}
+	}
+	g.obj = hashObj.Cast("java/util/Set")
+
+	return
+}
+
+func (g *GoToJavaSet) Value() *jnigi.ObjectRef {
+	return g.obj
+}
+
 type JavaToGoSet struct {
 	env  *jnigi.Env
 	iter *jnigi.ObjectRef
