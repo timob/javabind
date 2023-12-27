@@ -646,6 +646,11 @@ func (g *GoToJavaSet) Value() *jnigi.ObjectRef {
 	return g.obj
 }
 
+func (g *GoToJavaSet) CleanUp() error {
+	g.env.DeleteLocalRef(g.obj)
+	return nil
+}
+
 type JavaToGoSet struct {
 	env  *jnigi.Env
 	iter *jnigi.ObjectRef
