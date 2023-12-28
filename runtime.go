@@ -471,7 +471,6 @@ func (j *JavaToGoList) Convert(obj *jnigi.ObjectRef) (err error) {
 			r_elemVal := reflect.New(r_newElem.Type().Elem())
 			r_newElem.Set(r_elemVal)
 			c := NewEmptyCallable()
-			// this is the pointer to generated type by JAG
 			reflect.Indirect(r_elemVal).FieldByName("Callable").Set(reflect.ValueOf(c))
 			j.item.Dest(c)
 		} else {
@@ -538,7 +537,16 @@ func (j *JavaToGoIterator) Convert(obj *jnigi.ObjectRef) (err error) {
 		}
 
 		r_newElem := reflect.Indirect(reflect.New(r_slice.Type().Elem()))
-		j.item.Dest(r_newElem.Addr().Interface())
+		if r_newElem.Type().Kind() == reflect.Ptr {
+			r_elemVal := reflect.New(r_newElem.Type().Elem())
+			r_newElem.Set(r_elemVal)
+			c := NewEmptyCallable()
+			reflect.Indirect(r_elemVal).FieldByName("Callable").Set(reflect.ValueOf(c))
+			j.item.Dest(c)
+		} else {
+			j.item.Dest(r_newElem.Addr().Interface())
+		}
+
 		if err = j.item.Convert(next); err != nil {
 			return err
 		}
