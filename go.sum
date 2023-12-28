@@ -15,3 +15,7 @@ gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 tekao.net/jnigi v0.0.0-20231126215816-7a2c40eb0208 h1:BXcbB3nhUrNqLT8vwmGo/U8Bc+y1IupZjyuYF+wJ19o=
 tekao.net/jnigi v0.0.0-20231126215816-7a2c40eb0208/go.mod h1:g6J/3aKxlDncTbJNw+vS7qIBj9/u3D6P8xRFdsbnGpQ=
+tekao.net/jnigi v0.0.0-20231215022200-2fbd8c4af674 h1:OziKrOURQaDATCpAwOoedae5NmnJN32LGkpNtRa4jJA=
+tekao.net/jnigi v0.0.0-20231215022200-2fbd8c4af674/go.mod h1:g6J/3aKxlDncTbJNw+vS7qIBj9/u3D6P8xRFdsbnGpQ=
+tekao.net/jnigi v0.0.0-20231228054517-9fce18b41de6 h1:7ksXEp97q+4EvmPipwz2DnErTFhAb2wtAccRjq3LOgM=
+tekao.net/jnigi v0.0.0-20231228054517-9fce18b41de6/go.mod h1:g6J/3aKxlDncTbJNw+vS7qIBj9/u3D6P8xRFdsbnGpQ=
