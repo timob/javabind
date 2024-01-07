@@ -181,11 +181,18 @@ func StopJvm() error {
 	return jvm.Destroy()
 }
 
-func SetupJVMFromEnv(env unsafe.Pointer) {
-	envs[GetThreadId()] = jnigi.WrapEnv(env)
+func SetupJVMFromEnv(envPtr unsafe.Pointer) error {
+	env := jnigi.WrapEnv(envPtr)
+	var err error
+	jvm, err = env.GetJVM()
+	if err != nil {
+		return err
+	}
+	envs[GetThreadId()] = env
 	for _, f := range OnJVMStartFn {
 		f()
 	}
+	return nil
 }
 
 func AddEnv(env unsafe.Pointer) {
@@ -846,6 +853,15 @@ func (j *JavaToGoMap) Convert(obj *jnigi.ObjectRef) (err error) {
 func (j *JavaToGoMap) CleanUp() (err error) {
 	j.env.DeleteLocalRef(j.list)
 	return
+}
+
+// TODO implement this
+type GoToJavaMap_Entry struct {
+	ToJavaConverter
+}
+
+func NewGoToJavaMap_Entry(key, value ToJavaConverter) *GoToJavaMap_Entry {
+	return &GoToJavaMap_Entry{}
 }
 
 type JavaToGoMap_Entry struct {
