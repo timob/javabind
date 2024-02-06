@@ -383,6 +383,41 @@ func (j *JavaToGoString) CleanUp() (err error) {
 	return
 }
 
+type GoToJavaCharSequence struct {
+	*GoToJavaString
+}
+
+func NewGoToJavaCharSequence() *GoToJavaCharSequence {
+	return &GoToJavaCharSequence{&GoToJavaString{env: GetEnv()}}
+}
+
+type JavaToGoCharSequence struct {
+	*JavaToGoString
+	charObj *jnigi.ObjectRef
+}
+
+func NewJavaToGoCharSequence() *JavaToGoCharSequence {
+	return &JavaToGoCharSequence{JavaToGoString: &JavaToGoString{env: GetEnv()}}
+}
+
+func (j *JavaToGoCharSequence) Convert(obj *jnigi.ObjectRef) error {
+	j.charObj = obj
+	strObj := jnigi.NewObjectRef("java/lang/String")
+	err := j.charObj.CallMethod(j.env, "toString", strObj)
+	if err != nil {
+		return err
+	}
+	return j.JavaToGoString.Convert(strObj)
+}
+
+func (j *JavaToGoCharSequence) CleanUp() (err error) {
+	if err := j.JavaToGoString.CleanUp(); err != nil {
+		return err
+	}
+	j.env.DeleteLocalRef(j.charObj)
+	return nil
+}
+
 type GoToJavaList struct {
 	obj  *jnigi.ObjectRef
 	env  *jnigi.Env
