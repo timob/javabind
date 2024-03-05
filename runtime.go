@@ -184,13 +184,22 @@ func StopJvm() error {
 func SetupJVMFromEnv(envPtr unsafe.Pointer) error {
 	env := jnigi.WrapEnv(envPtr)
 	var err error
-	jvm, err = env.GetJVM()
-	if err != nil {
-		return err
+	var runStartFns bool
+	// already started
+	if jvm == nil {
+		jvm, err = env.GetJVM()
+		if err != nil {
+			return err
+		}
+		runStartFns = true
 	}
+
 	envs[GetThreadId()] = env
-	for _, f := range OnJVMStartFn {
-		f()
+
+	if runStartFns {
+		for _, f := range OnJVMStartFn {
+			f()
+		}
 	}
 	return nil
 }
