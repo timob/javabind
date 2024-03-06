@@ -725,6 +725,9 @@ func (j *JavaToGoSet) Dest(ptr interface{}) {
 }
 
 func (j *JavaToGoSet) Convert(obj *jnigi.ObjectRef) (err error) {
+	if obj.IsNil() {
+		return nil
+	}
 	iter := jnigi.NewObjectRef("java/util/Iterator")
 	err = CallObjectMethod(obj, j.env, "iterator", iter)
 	if err != nil {
@@ -735,7 +738,9 @@ func (j *JavaToGoSet) Convert(obj *jnigi.ObjectRef) (err error) {
 }
 
 func (j *JavaToGoSet) CleanUp() (err error) {
-	j.env.DeleteLocalRef(j.iter)
+	if j.iter != nil {
+		j.env.DeleteLocalRef(j.iter)
+	}
 	return
 }
 
