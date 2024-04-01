@@ -110,6 +110,10 @@ type AttachedThread struct {
 }
 
 func NewAttachedThread() *AttachedThread {
+	return NewAttachedThreadWithClassLoader(nil)
+}
+
+func NewAttachedThreadWithClassLoader(classLoader *ClassLoaderRef) *AttachedThread {
 	a := &AttachedThread{make(chan func()), make(chan byte), make(chan byte)}
 	go func() {
 		runtime.LockOSThread()
@@ -117,6 +121,9 @@ func NewAttachedThread() *AttachedThread {
 		envsLock.Lock()
 		envs[GetThreadId()] = env
 		envsLock.Unlock()
+		if classLoader != nil {
+			env.SetClassLoader(classLoader.ref)
+		}
 		for {
 			select {
 			case f := <-a.work:
@@ -143,6 +150,14 @@ func (a *AttachedThread) Run(f func()) {
 
 func (a *AttachedThread) Stop() {
 	a.quit <- 1
+}
+
+type ClassLoaderRef struct {
+	ref *jnigi.ClassLoaderRef
+}
+
+func NewClassLoaderRef(src CallableContainer) *ClassLoaderRef {
+	return &ClassLoaderRef{GetEnv().GetClassLoader(src.GetCallable().ObjectRef)}
 }
 
 func SetupJVM(classPath string) (err error) {
@@ -205,6 +220,9 @@ func SetupJVMFromEnv(envPtr unsafe.Pointer) error {
 }
 
 func AddEnv(env unsafe.Pointer) {
+	if _, ok := envs[GetThreadId()]; ok {
+		return
+	}
 	envs[GetThreadId()] = jnigi.WrapEnv(env)
 }
 
