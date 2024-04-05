@@ -310,6 +310,10 @@ func NewGoToJavaCallable() *GoToJavaCallable {
 }
 
 func (g *GoToJavaCallable) Convert(value interface{}) (err error) {
+	if value == nil {
+		g.obj = &jnigi.ObjectRef{}
+		return
+	}
 	g.obj = value.(CallableContainer).GetCallable().ObjectRef
 	return
 }
