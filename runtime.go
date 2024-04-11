@@ -13,7 +13,7 @@ import (
 	"time"
 	"unsafe"
 
-	"tekao.net/jnigi"
+	"github.com/timob/jnigi"
 )
 
 const (
